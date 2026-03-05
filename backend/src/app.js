@@ -22,7 +22,8 @@ app.use('/api/auth', authLimiter);
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/prediction", predictionRoutes);
+app.use("/api/predictions", predictionRoutes);
+app.use("/api/prediction", predictionRoutes); // backward compatibility
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/ml", mlRoutes);
