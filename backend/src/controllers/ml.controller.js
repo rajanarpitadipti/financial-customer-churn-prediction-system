@@ -1,12 +1,29 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-const ML_DIR = path.resolve(process.cwd(), '../../ml');
-const DATA_DIR = path.resolve(process.cwd(), '../../backend/data');
-const UPLOADS_DIR = path.resolve(process.cwd(), '../../backend/uploads');
-// Use the full path to the venv Python executable
-const PYTHON_PATH = path.resolve(process.cwd(), '../../.venv/Scripts/python.exe');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, '../../..');
+
+const ML_DIR = path.join(ROOT_DIR, 'ml');
+const DATA_DIR = path.join(ROOT_DIR, 'backend', 'data');
+const UPLOADS_DIR = path.join(ROOT_DIR, 'backend', 'uploads');
+
+const PYTHON_PATH =
+  process.env.PYTHON_PATH ||
+  (process.platform === 'win32'
+    ? path.join(ROOT_DIR, '.venv', 'Scripts', 'python.exe')
+    : path.join(ROOT_DIR, '.venv', 'bin', 'python'));
+
+const resolvePythonCommand = () => {
+  if (process.env.PYTHON_PATH) return process.env.PYTHON_PATH;
+  if (fs.existsSync(PYTHON_PATH)) return PYTHON_PATH;
+  return process.platform === 'win32' ? 'python' : 'python3';
+};
+
+const PYTHON_CMD = resolvePythonCommand();
 
 // ADMIN: Upload dataset and train model
 export const adminUploadDataset = [
@@ -35,7 +52,7 @@ export const adminTrainModel = async (req, res) => {
     if (!filename) return res.status(400).json({ success: false, message: 'No dataset filename provided' });
     const datasetPath = path.join(DATA_DIR, filename);
     if (!fs.existsSync(datasetPath)) return res.status(404).json({ success: false, message: 'Dataset not found' });
-    const py = spawn(PYTHON_PATH, [path.join(ML_DIR, 'train_model.py'), datasetPath]);
+    const py = spawn(PYTHON_CMD, [path.join(ML_DIR, 'train_model.py'), datasetPath]);
     let output = '';
     py.stdout.on('data', (data) => { output += data.toString(); });
     py.stderr.on('data', (data) => { output += data.toString(); });
@@ -58,7 +75,7 @@ export const adminBatchPredict = async (req, res) => {
     if (!filename) return res.status(400).json({ success: false, message: 'No dataset filename provided' });
     const datasetPath = path.join(DATA_DIR, filename);
     if (!fs.existsSync(datasetPath)) return res.status(404).json({ success: false, message: 'Dataset not found' });
-    const py = spawn(PYTHON_PATH, [path.join(ML_DIR, 'predict.py'), datasetPath]);
+    const py = spawn(PYTHON_CMD, [path.join(ML_DIR, 'predict.py'), datasetPath]);
     let output = '';
     py.stdout.on('data', (data) => { output += data.toString(); });
     py.stderr.on('data', (data) => { output += data.toString(); });
@@ -86,7 +103,7 @@ export const adminPredictionSummary = async (req, res) => {
     if (!filename) return res.status(400).json({ success: false, message: 'No dataset filename provided' });
     const datasetPath = path.join(DATA_DIR, filename);
     if (!fs.existsSync(datasetPath)) return res.status(404).json({ success: false, message: 'Dataset not found' });
-    const py = spawn(PYTHON_PATH, [path.join(ML_DIR, 'predict.py'), datasetPath]);
+    const py = spawn(PYTHON_CMD, [path.join(ML_DIR, 'predict.py'), datasetPath]);
     let output = '';
     py.stdout.on('data', (data) => { output += data.toString(); });
     py.stderr.on('data', (data) => { output += data.toString(); });
@@ -113,7 +130,7 @@ export const adminPredictionSummary = async (req, res) => {
 export const bankSinglePredict = async (req, res) => {
   try {
     const input = req.body;
-    const py = spawn(PYTHON_PATH, [path.join(ML_DIR, 'predict.py'), '-'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const py = spawn(PYTHON_CMD, [path.join(ML_DIR, 'predict.py'), '-'], { stdio: ['pipe', 'pipe', 'pipe'] });
     py.stdin.write(JSON.stringify(input));
     py.stdin.end();
     let output = '';
@@ -142,7 +159,7 @@ export const bankBatchPredict = async (req, res) => {
     const { filename } = req.body;
     const csvPath = path.join(UPLOADS_DIR, filename);
     if (!fs.existsSync(csvPath)) return res.status(404).json({ success: false, message: 'CSV not found' });
-    const py = spawn('python', [path.join(ML_DIR, 'predict.py'), csvPath]);
+    const py = spawn(PYTHON_CMD, [path.join(ML_DIR, 'predict.py'), csvPath]);
     let output = '';
     py.stdout.on('data', (data) => { output += data.toString(); });
     py.stderr.on('data', (data) => { output += data.toString(); });
