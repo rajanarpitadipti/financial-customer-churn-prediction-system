@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login as apiLogin, register } from '../services/api';
-import { AuthContext } from '../context/AuthContext'; 
+import { AuthContext } from '../context/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login: contextLogin } = useContext(AuthContext); 
+  const { login: contextLogin } = useContext(AuthContext);
   const [tab, setTab] = useState('login');
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 880 : false);
   const [message, setMessage] = useState('');
+  const [signupRole, setSignupRole] = useState('bank'); // Role for signup
 
   useEffect(() => {
     function onResize() {
@@ -59,6 +60,7 @@ export default function Login() {
     justifyContent: 'center',
     textAlign: isMobile ? 'center' : 'left'
   };
+
   const rightStyle = {
     flex: 1,
     padding: isMobile ? 22 : 40,
@@ -121,7 +123,6 @@ export default function Login() {
     width: '100%'
   };
 
-  // LOGIN HANDLER – uses context
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -131,16 +132,20 @@ export default function Login() {
 
     try {
       const res = await apiLogin({ email, password });
-      // Use context login to store token & user
       contextLogin(res.data.token, res.data.user);
       setMessage('✅ Login successful! Redirecting...');
-      setTimeout(() => navigate('/dashboard'), 1000);
+      setTimeout(() => {
+        if (res.data.user.role === "admin") {
+          navigate("/admin-dashboard");
+        } else {
+          navigate("/bank-dashboard");
+        }
+      }, 1000);
     } catch (err) {
       setMessage(err.response?.data?.message || '❌ Login failed. Please try again.');
     }
   };
 
-  // SIGNUP HANDLER – calls real API (no changes)
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -150,10 +155,11 @@ export default function Login() {
     const password = form['signup-password'].value;
 
     try {
-      const res = await register({ name, email, password });
-      setMessage('✅ Registration successful! You can now log in.');
+      const res = await register({ name, email, password, role: signupRole });
+      setMessage(res.data.message); // Use dynamic message from backend
       form.reset();
       setTab('login');
+      setSignupRole('bank');
     } catch (err) {
       setMessage(err.response?.data?.message || '❌ Registration failed. Please try again.');
     }
@@ -197,7 +203,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* 👇 MESSAGE DISPLAY */}
             {message && (
               <div style={{ marginBottom: 16, padding: 10, borderRadius: 8, background: '#f0f4ff', color: '#023E7D', fontSize: '0.95rem' }}>
                 {message}
@@ -229,6 +234,18 @@ export default function Login() {
 
                 <label htmlFor="signup-password" style={labelStyle}>Password</label>
                 <input id="signup-password" type="password" required placeholder="Choose a password" style={inputStyle} />
+
+                <label htmlFor="signup-role" style={labelStyle}>Register as</label>
+                <select
+                  id="signup-role"
+                  value={signupRole}
+                  onChange={(e) => setSignupRole(e.target.value)}
+                  style={inputStyle}
+                  required
+                >
+                  <option value="bank">Bank</option>
+                  <option value="admin">Admin</option>
+                </select>
 
                 <button className="action" type="submit" style={actionStyle}>Create Account</button>
               </form>

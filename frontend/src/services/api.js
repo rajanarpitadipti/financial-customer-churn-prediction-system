@@ -1,10 +1,9 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'http://localhost:2005/api', //  backend URL
+  baseURL: 'http://localhost:2005/api',   
 });
 
-// Automatically attach token to every request
 API.interceptors.request.use((req) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -13,10 +12,42 @@ API.interceptors.request.use((req) => {
   return req;
 });
 
-// Auth endpoints
 export const register = (userData) => API.post('/auth/register', userData);
 export const login = (userData) => API.post('/auth/login', userData);
-
-// Protected endpoints (we'll add more later)
 export const getProfile = () => API.get('/auth/profile');
-export const getAllUsers = () => API.get('/auth/users'); // admin only
+export const getAllUsers = () => API.get('/auth/users');
+export const getChurnDistribution = () => API.get('/predictions/churn-distribution');
+// Admin: approve a user (admin only)
+export const approveUser = (userId) => API.patch(`/admin/approve/${userId}`);
+export const predictSingleChurn = (customerData) => API.post('/predictions/single', customerData);
+
+
+// ADMIN ML APIs
+export const adminUploadDataset = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return API.post('/ml/admin/upload-dataset', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const adminTrainModel = (filename) =>
+  API.post('/ml/admin/train-model', { filename });
+
+export const adminBatchPredict = (filename) =>
+  API.post('/ml/admin/batch-predict', { filename });
+
+export const adminPredictionSummary = (filename) =>
+  API.post('/ml/admin/prediction-summary', { filename });
+
+// BANK ML APIs
+export const bankSinglePredict = (customerData) =>
+  API.post('/ml/prediction/single', customerData);
+
+export const bankBatchPredict = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return API.post('/ml/prediction/upload-csv', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};

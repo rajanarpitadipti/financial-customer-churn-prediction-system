@@ -1,16 +1,18 @@
-import { Navigate } from 'react-router-dom';
-import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext'; // ✅ relative path
+import { useContext } from "react";
+import { Navigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 
-const ProtectedRoute = ({ children }) => {
-  const { user, isLoading } = useContext(AuthContext);
+const ProtectedRoute = ({ children, allowedRole }) => {
+  const { user } = useContext(AuthContext);
 
-  if (isLoading) {
-    return <div style={{ color: '#fff', textAlign: 'center', marginTop: '50px' }}>Loading...</div>;
+  // Not logged in
+  if (!user) {
+    return <Navigate to="/login" />;
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  // Role restriction (admin / bank)
+  if (allowedRole && user.role !== allowedRole) {
+    return <Navigate to="/login" />;
   }
 
   return children;
