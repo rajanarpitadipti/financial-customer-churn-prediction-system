@@ -3,11 +3,14 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score, precision_recall_fscore_support
 import joblib
 import os
+import json
+from datetime import datetime, timezone
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'rf_model.joblib')
+MODEL_META_PATH = os.path.join(os.path.dirname(__file__), 'model_meta.json')
 
 TARGET_CANDIDATES = ['exited', 'churn', 'is_churn', 'target', 'label']
 ID_CANDIDATES = ['rownumber', 'customerid', 'customer_id', 'id']
@@ -98,11 +101,34 @@ def main():
 
     # Print metrics for demo
     y_pred = clf.predict(X_test)
+    accuracy = float(accuracy_score(y_test, y_pred))
+    precision, recall, f1_score, _ = precision_recall_fscore_support(
+        y_test, y_pred, average='binary', zero_division=0
+    )
+
+    meta = {
+        'trained_at': datetime.now(timezone.utc).isoformat(),
+        'dataset': os.path.basename(csv_path),
+        'target_column': target_col,
+        'display_column': display_col,
+        'total_samples': int(len(y)),
+        'train_samples': int(len(X_train)),
+        'test_samples': int(len(X_test)),
+        'accuracy': float(accuracy),
+        'precision': float(precision),
+        'recall': float(recall),
+        'f1_score': float(f1_score),
+    }
+    with open(MODEL_META_PATH, 'w', encoding='utf-8') as f:
+        json.dump(meta, f, indent=2)
+
     print('Training complete!')
     print(f'Target column: {target_col}')
     print(f'Display column: {display_col}')
+    print(f'Accuracy: {accuracy:.4f}')
     print(classification_report(y_test, y_pred))
     print(f'Model saved to {MODEL_PATH}')
+    print(f'Metadata saved to {MODEL_META_PATH}')
 
 if __name__ == '__main__':
     main()

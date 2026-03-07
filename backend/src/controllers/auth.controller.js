@@ -1,6 +1,7 @@
 import User from "../models/User.model.js";
 import bcrypt from "bcryptjs";
 import jwt from 'jsonwebtoken';
+import { logEvent } from "../utils/logger.js";
 
 // ==================== REGISTER ====================
 export const registerUser = async (req, res) => {
@@ -54,6 +55,12 @@ export const loginUser = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
+      logEvent({
+        level: "WARN",
+        source: "Auth",
+        message: "Login failed: user not found",
+        details: email,
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
@@ -61,6 +68,13 @@ export const loginUser = async (req, res) => {
     }
 
     if (!user.approved) {
+      logEvent({
+        level: "WARN",
+        source: "Auth",
+        message: "Login blocked: account pending approval",
+        details: email,
+        userId: user._id,
+      });
       return res.status(403).json({
         success: false,
         message: "Your account is pending approval by an admin.",
@@ -69,6 +83,13 @@ export const loginUser = async (req, res) => {
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
+      logEvent({
+        level: "WARN",
+        source: "Auth",
+        message: "Login failed: invalid password",
+        details: email,
+        userId: user._id,
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
@@ -98,7 +119,20 @@ export const loginUser = async (req, res) => {
         approved: user.approved,
       },
     });
+    logEvent({
+      level: "INFO",
+      source: "Auth",
+      message: "Login successful",
+      details: email,
+      userId: user._id,
+    });
   } catch (error) {
+    logEvent({
+      level: "ERROR",
+      source: "Auth",
+      message: "Login request failed",
+      details: error.message,
+    });
     res.status(500).json({
       success: false,
       message: error.message,

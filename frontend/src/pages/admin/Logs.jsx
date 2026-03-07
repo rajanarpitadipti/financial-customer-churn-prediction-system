@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getAdminLogs } from '../../services/api';
 
 const colors = {
   primary: '#001845',
@@ -19,22 +20,61 @@ const Logs = () => {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock log data – replace with real API
+  const fetchLogs = async () => {
+    try {
+      setError('');
+      setLoading(true);
+      const res = await getAdminLogs({
+        level: filter,
+        search,
+        limit: 300
+      });
+      setLogs(res.data?.logs || []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load logs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const mockLogs = [
-      { id: 1, timestamp: '2024-02-15T10:23:45Z', level: 'INFO', source: 'Auth', message: 'User admin@bank.com logged in successfully', details: 'IP: 192.168.1.100' },
-      { id: 2, timestamp: '2024-02-15T10:22:30Z', level: 'WARN', source: 'Model', message: 'Prediction accuracy below threshold for segment C', details: 'Current: 87%, Target: 92%' },
-      { id: 3, timestamp: '2024-02-15T10:20:15Z', level: 'ERROR', source: 'Database', message: 'Connection timeout during batch prediction', details: 'Retry 3/5' },
-      { id: 4, timestamp: '2024-02-15T10:18:22Z', level: 'INFO', source: 'System', message: 'Daily model retraining completed', details: 'Duration: 2m 34s' },
-      { id: 5, timestamp: '2024-02-15T10:15:07Z', level: 'DEBUG', source: 'API', message: 'Request payload: { customerId: "C001", features: [...] }', details: 'Endpoint: /predict' },
-      { id: 6, timestamp: '2024-02-15T10:12:44Z', level: 'WARN', source: 'Storage', message: 'Disk usage above 80%', details: 'Current: 82%, Projected: 90% in 3 days' },
-      { id: 7, timestamp: '2024-02-15T10:10:11Z', level: 'ERROR', source: 'Auth', message: 'Failed login attempt for admin@bank.com', details: 'Invalid password (3 attempts)' },
-      { id: 8, timestamp: '2024-02-15T10:08:33Z', level: 'INFO', source: 'Job', message: 'Scheduled cleanup completed', details: 'Removed 234 old records' }
-    ];
-    setLogs(mockLogs);
-  }, []);
+    const timer = setTimeout(() => {
+      fetchLogs();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [filter, search]);
+
+  useEffect(() => {
+    if (!autoScroll) return;
+    const interval = setInterval(fetchLogs, 10000);
+    return () => clearInterval(interval);
+  }, [autoScroll, filter, search]);
+
+  const exportCsv = () => {
+    const header = ['Timestamp', 'Level', 'Source', 'Message', 'Details'];
+    const rows = filteredLogs.map((log) => [
+      new Date(log.createdAt || log.timestamp).toISOString(),
+      log.level,
+      log.source,
+      (log.message || '').replace(/"/g, '""'),
+      (log.details || '').replace(/"/g, '""')
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((col) => `"${String(col)}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `system-logs-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const getLevelColor = (level) => {
     switch(level) {
@@ -56,12 +96,7 @@ const Logs = () => {
     }
   };
 
-  const filteredLogs = logs.filter(log => {
-    if (filter !== 'all' && log.level !== filter) return false;
-    if (search && !log.message.toLowerCase().includes(search.toLowerCase()) &&
-        !log.source.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const filteredLogs = logs;
 
   return (
     <div style={styles.container}>
@@ -81,13 +116,14 @@ const Logs = () => {
               ...(autoScroll ? styles.controlActive : {})
             }}
           >
-            🔄 Auto-scroll {autoScroll ? 'ON' : 'OFF'}
+            🔄 Auto-refresh {autoScroll ? 'ON' : 'OFF'}
           </button>
-          <button style={styles.controlButton}>
+          <button style={styles.controlButton} onClick={exportCsv}>
             📥 Export
           </button>
         </div>
       </div>
+      {error && <p style={styles.errorText}>{error}</p>}
 
       {/* Filters */}
       <div style={styles.filters}>
@@ -148,7 +184,12 @@ const Logs = () => {
 
       {/* Logs List */}
       <div style={styles.logsContainer}>
-        {filteredLogs.length === 0 ? (
+        {loading ? (
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>⏳</div>
+            <h3 style={styles.emptyTitle}>Loading logs...</h3>
+          </div>
+        ) : filteredLogs.length === 0 ? (
           <div style={styles.emptyState}>
             <div style={styles.emptyIcon}>📋</div>
             <h3 style={styles.emptyTitle}>No logs found</h3>
@@ -157,14 +198,14 @@ const Logs = () => {
         ) : (
           filteredLogs.map(log => (
             <div
-              key={log.id}
+              key={log._id || `${log.level}-${log.createdAt || log.timestamp}`}
               style={styles.logEntry}
               onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.lightBg}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = colors.white}
             >
               <div style={styles.logHeader}>
                 <span style={styles.logTime}>
-                  {new Date(log.timestamp).toLocaleTimeString()}
+                  {new Date(log.createdAt || log.timestamp).toLocaleString()}
                 </span>
                 <span
                   style={{
@@ -214,6 +255,11 @@ const styles = {
     fontSize: '16px',
     color: colors.muted,
     margin: 0
+  },
+  errorText: {
+    color: colors.danger,
+    marginTop: 0,
+    marginBottom: '12px'
   },
   controls: {
     display: 'flex',
