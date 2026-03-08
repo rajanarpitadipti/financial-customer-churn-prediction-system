@@ -282,6 +282,7 @@ export default function BankDashboard() {
     if (!user) navigate("/login");
   }, [user, navigate]);
 
+
   useEffect(() => {
     const fetchChurnDistribution = async () => {
       try {
@@ -467,7 +468,7 @@ const styles = {
     width: 40,
     height: 40,
     borderRadius: '50%',
-    border: `2px solid ${colors.accent}`,
+    border: `2px solid ${colors.accent}` ,
     objectFit: 'cover',
     background: colors.white,
   },
