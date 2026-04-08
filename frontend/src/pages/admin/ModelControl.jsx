@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   adminUploadDataset,
   adminTrainModel,
   adminBatchPredict,
-  adminPredictionSummary
+  adminPredictionSummary,
+  getAdminModelStatus
 } from '../../services/api';
 
 const colors = {
@@ -29,13 +30,49 @@ const ModelControl = () => {
   const [batchResults, setBatchResults] = useState([]);
   const [summary, setSummary] = useState(null);
   const [summaryMsg, setSummaryMsg] = useState('');
-  // Add modelStatus state to fix ReferenceError
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [statusError, setStatusError] = useState('');
   const [modelStatus, setModelStatus] = useState({
     version: 'v1.0.0',
     lastTrained: '-',
     accuracy: '-',
     totalSamples: '-'
   });
+  const [modelMetrics, setModelMetrics] = useState({
+    precision: 0,
+    recall: 0,
+    f1: 0
+  });
+
+  const loadModelStatus = async () => {
+    try {
+      setStatusError('');
+      const res = await getAdminModelStatus();
+      const status = res.data?.status || {};
+      setModelStatus({
+        version: status.version || 'Not Trained',
+        lastTrained: status.lastTrained ? new Date(status.lastTrained).toLocaleString() : '-',
+        accuracy: Number.isFinite(status.accuracy) ? `${status.accuracy.toFixed(1)}%` : '-',
+        totalSamples: Number.isFinite(status.totalSamples) ? status.totalSamples.toLocaleString() : '-',
+        active: Boolean(status.modelExists)
+      });
+      setModelMetrics({
+        precision: Number.isFinite(status.metrics?.precision) ? status.metrics.precision : 0,
+        recall: Number.isFinite(status.metrics?.recall) ? status.metrics.recall : 0,
+        f1: Number.isFinite(status.metrics?.f1) ? status.metrics.f1 : 0
+      });
+    } catch (err) {
+      setStatusError(err.response?.data?.message || 'Could not load model status');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadModelStatus();
+    const timer = setInterval(loadModelStatus, 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -46,7 +83,7 @@ const ModelControl = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setUploadMsg('Please select a CSV file.');
+      setUploadMsg('Please select a CSV, XLSX, or XLS file.');
       return;
     }
     setUploading(true);
@@ -71,6 +108,7 @@ const ModelControl = () => {
     try {
       const res = await adminTrainModel(datasetName);
       setTrainMsg(res.data.message || 'Model trained!');
+      loadModelStatus();
     } catch (err) {
       setTrainMsg(err.response?.data?.message || 'Training failed.');
     }
@@ -117,6 +155,8 @@ const ModelControl = () => {
           <p style={styles.subtitle}>
             Manage and monitor your churn prediction model
           </p>
+          {statusError && <p style={{ color: colors.danger, marginTop: 8, marginBottom: 0 }}>{statusError}</p>}
+          {statusLoading && <p style={{ color: colors.muted, marginTop: 8, marginBottom: 0 }}>Loading live model status...</p>}
         </div>
       </div>
 
@@ -125,7 +165,9 @@ const ModelControl = () => {
         <div style={styles.statusCard}>
           <div style={styles.statusHeader}>
             <span style={styles.statusIcon}>🤖</span>
-            <span style={styles.statusBadge(colors)}>Active</span>
+            <span style={styles.statusBadge(colors, modelStatus.active)}>
+              {modelStatus.active ? 'Active' : 'Not Ready'}
+            </span>
           </div>
           <p style={styles.statusLabel}>Model Version</p>
           <p style={styles.statusValue}>{modelStatus.version}</p>
@@ -167,13 +209,13 @@ const ModelControl = () => {
             <input
               type="file"
               id="file-upload"
-              accept=".csv"
+              accept=".csv,.xlsx,.xls"
               onChange={handleFileUpload}
               style={styles.fileInput}
             />
             <label htmlFor="file-upload" style={styles.fileLabel}>
               <span style={styles.uploadIcon}>📁</span>
-              {selectedFile ? selectedFile.name : 'Choose CSV file'}
+              {selectedFile ? selectedFile.name : 'Choose CSV/XLSX/XLS file'}
             </label>
           </div>
           {selectedFile && (
@@ -271,7 +313,7 @@ const ModelControl = () => {
                 <tr key={idx} style={{ background: idx % 2 === 0 ? colors.white : colors.lightBg }}>
                   <td style={styles.tableCell}>{row.name}</td>
                   <td style={styles.tableCell}>{row.prediction}</td>
-                  <td style={styles.tableCell}>{row.probability.toFixed(2)}</td>
+                  <td style={styles.tableCell}>{Number.isFinite(row.probability) ? row.probability.toFixed(2) : '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -285,23 +327,23 @@ const ModelControl = () => {
         <div style={styles.metricsGrid}>
           <div style={styles.metricItem}>
             <p style={styles.metricLabel}>Precision</p>
-            <p style={styles.metricValue}>0.93</p>
+            <p style={styles.metricValue}>{(modelMetrics.precision / 100).toFixed(2)}</p>
             <div style={styles.metricBar}>
-              <div style={{...styles.metricFill, width: '93%'}} />
+              <div style={{...styles.metricFill, width: `${modelMetrics.precision}%`}} />
             </div>
           </div>
           <div style={styles.metricItem}>
             <p style={styles.metricLabel}>Recall</p>
-            <p style={styles.metricValue}>0.89</p>
+            <p style={styles.metricValue}>{(modelMetrics.recall / 100).toFixed(2)}</p>
             <div style={styles.metricBar}>
-              <div style={{...styles.metricFill, width: '89%'}} />
+              <div style={{...styles.metricFill, width: `${modelMetrics.recall}%`}} />
             </div>
           </div>
           <div style={styles.metricItem}>
             <p style={styles.metricLabel}>F1 Score</p>
-            <p style={styles.metricValue}>0.91</p>
+            <p style={styles.metricValue}>{(modelMetrics.f1 / 100).toFixed(2)}</p>
             <div style={styles.metricBar}>
-              <div style={{...styles.metricFill, width: '91%'}} />
+              <div style={{...styles.metricFill, width: `${modelMetrics.f1}%`}} />
             </div>
           </div>
         </div>
@@ -353,10 +395,10 @@ const styles = {
   statusIcon: {
     fontSize: '24px'
   },
-  statusBadge: (colors) => ({
+  statusBadge: (colors, isActive = true) => ({
     padding: '4px 8px',
-    background: colors.success + '20',
-    color: colors.success,
+    background: isActive ? colors.success + '20' : colors.warning + '20',
+    color: isActive ? colors.success : colors.warning,
     borderRadius: '20px',
     fontSize: '12px',
     fontWeight: '600'

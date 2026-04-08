@@ -1,89 +1,139 @@
-﻿financial-customer-churn-prediction-system/
-├── README.md
-├── TREE.md
+financial-customer-churn-prediction-system/
 ├── backend/
-│   ├── package.json
+│   ├── data/
+│   │   └── Customer-Churn-Records.csv
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── db.js
+│   │   ├── constants/
+│   │   │   └── roles.js
+│   │   ├── controllers/
+│   │   │   ├── admin.controller.js
+│   │   │   ├── auth.controller.js
+│   │   │   ├── ml.controller.js
+│   │   │   ├── prediction.controller.js
+│   │   │   └── user.controller.js
+│   │   ├── middleware/
+│   │   │   ├── admin.middleware.js
+│   │   │   ├── auth.middleware.js
+│   │   │   ├── error.middleware.js
+│   │   │   ├── rateLimiter.js
+│   │   │   └── role.middleware.js
+│   │   ├── ml/
+│   │   │   ├── churnModel.js
+│   │   │   ├── metrics.js
+│   │   │   ├── preprocess.js
+│   │   │   ├── trainData.js
+│   │   │   └── trainWithKaggle.js
+│   │   ├── models/
+│   │   │   ├── Log.model.js
+│   │   │   ├── Prediction.model.js
+│   │   │   └── User.model.js
+│   │   ├── routes/
+│   │   │   ├── admin.routes.js
+│   │   │   ├── auth.routes.js
+│   │   │   ├── ml.routes.js
+│   │   │   ├── prediction.routes.js
+│   │   │   └── user.routes.js
+│   │   ├── saved_model/
+│   │   │   ├── model.json
+│   │   │   ├── normalization.json
+│   │   │   └── weights.json
+│   │   ├── services/
+│   │   │   ├── admin.service.js
+│   │   │   ├── auth.service.js
+│   │   │   └── prediction.service.js
+│   │   ├── utils/
+│   │   │   ├── jwt.js
+│   │   │   └── logger.js
+│   │   ├── app.js
+│   │   └── server.js
+│   ├── uploads/
+│   ├── .env.development
+│   ├── .env.production
 │   ├── package-lock.json
-│   ├── .env
-│   └── src/
-│       ├── app.js
-│       ├── server.js
-│       ├── config/
-│       │   └── db.js
-│       ├── constants/
-│       │   └── roles.js
-│       ├── controllers/
-│       │   ├── admin.controller.js
-│       │   ├── auth.controller.js
-│       │   ├── prediction.controller.js
-│       │   └── user.controller.js
-│       ├── middleware/
-│       │   ├── admin.middleware.js
-│       │   ├── auth.middleware.js
-│       │   ├── error.middleware.js
-│       │   └── role.middleware.js
-│       ├── ml/
-│       │   ├── churnModel.js
-│       │   ├── metrics.js
-│       │   └── trainData.js
-│       ├── models/
-│       │   ├── Log.model.js
-│       │   ├── Prediction.model.js
-│       │   └── User.model.js
-│       ├── routes/
-│       │   ├── admin.routes.js
-│       │   ├── auth.routes.js
-│       │   ├── prediction.routes.js
-│       │   └── user.routes.js
-│       ├── services/
-│       │   ├── admin.service.js
-│       │   ├── auth.service.js
-│       │   └── prediction.service.js
-│       └── utils/
-│           ├── jwt.js
-│           └── logger.js
-└── frontend/
-    ├── .gitignore
-    ├── eslint.config.js
-    ├── index.html
-    ├── package.json
-    ├── vite.config.js
-    ├── public/
-    └── src/
-        ├── App.css
-        ├── App.jsx
-        ├── index.css
-        ├── main.jsx
-        ├── assets/
-        ├── components/
-        │   ├── ChurnChart.jsx
-        │   ├── ProtectedRoute.jsx
-        │   └── common/
-        │       ├── Header.jsx
-        │       ├── Loader.jsx
-        │       └── Sidebar.jsx
-        ├── context/
-        │   └── Authcontext.jsx
-        ├── pages/
-        │   ├── Home.jsx
-        │   ├── Login.jsx
-        │   ├── admin/
-        │   │   ├── AdminDashboard.jsx
-        │   │   ├── Analytics.jsx
-        │   │   ├── Logs.jsx
-        │   │   ├── ModelControl.jsx
-        │   │   └── Users.jsx
-        │   └── Bank/
-        │       ├── AddCustomer.jsx
-        │       ├── BankDashboard.jsx
-        │       ├── PredictionHistory.jsx
-        │       └── Profile.jsx
-        ├── routes/
-        │   └── AppRoutes.jsx
-        ├── services/
-        │   ├── admin.service.js
-        │   ├── api.js
-        │   ├── auth.service.js
-        │   └── prediction.service.js
-        └── utils/
-            └── helpers.js
+│   └── package.json
+├── frontend/
+│   ├── FCCPS/
+│   │   ├── public/
+│   │   │   └── vite.svg
+│   │   ├── src/
+│   │   │   ├── assets/
+│   │   │   │   └── react.svg
+│   │   │   ├── App.css
+│   │   │   ├── App.jsx
+│   │   │   ├── index.css
+│   │   │   └── main.jsx
+│   │   ├── .gitignore
+│   │   ├── eslint.config.js
+│   │   ├── index.html
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── vite.config.js
+│   ├── public/
+│   │   └── vite.svg
+│   ├── src/
+│   │   ├── assets/
+│   │   │   └── react.svg
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   │   ├── Header.jsx
+│   │   │   │   ├── Loader.jsx
+│   │   │   │   └── Sidebar.jsx
+│   │   │   ├── ChurnChart.jsx
+│   │   │   └── ProtectedRoute.jsx
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx
+│   │   ├── pages/
+│   │   │   ├── admin/
+│   │   │   │   ├── AdminDashboard.jsx
+│   │   │   │   ├── Analytics.jsx
+│   │   │   │   ├── Logs.jsx
+│   │   │   │   ├── ModelControl.jsx
+│   │   │   │   └── Users.jsx
+│   │   │   ├── Bank/
+│   │   │   │   ├── BankDashboard.jsx
+│   │   │   │   ├── ChurnPrediction.jsx
+│   │   │   │   ├── PredictionHistory.jsx
+│   │   │   │   └── Profile.jsx
+│   │   │   ├── Home.jsx
+│   │   │   └── Login.jsx
+│   │   ├── routes/
+│   │   │   └── AppRoutes.jsx
+│   │   ├── services/
+│   │   │   ├── admin.service.js
+│   │   │   ├── api.js
+│   │   │   ├── auth.service.js
+│   │   │   └── prediction.service.js
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── utils/
+│   │   └── helpers.js
+│   ├── .gitignore
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── README.md
+│   └── vite.config.js
+├── HTML_CSS/
+│   ├── dashboard.css
+│   ├── dashboard.html
+│   ├── home.css
+│   ├── home.html
+│   ├── Screenshot 2026-02-03 082429.png
+│   ├── Screenshot 2026-02-15 171030.png
+│   ├── Screenshot 2026-02-15 171405.png
+│   ├── Screenshot 2026-02-15 182308.png
+│   ├── Screenshot 2026-02-15 182444.png
+│   ├── upload.css
+│   └── upload.html
+├── ml/
+│   ├── predict.py
+│   ├── rf_model.joblib
+│   └── train_model.py
+├── .gitignore
+├── README.md
+└── TREE.md

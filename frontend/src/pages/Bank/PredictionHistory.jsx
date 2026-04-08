@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getBankPredictionHistory } from '../../services/api';
 
 const colors = {
   primary: '#001845',
@@ -16,19 +17,29 @@ const colors = {
 const PredictionHistory = () => {
   const [predictions, setPredictions] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const mockData = [
-      { id: 1, name: 'John Smith', date: '2024-02-15', risk: 'High', probability: 87 },
-      { id: 2, name: 'Sarah Johnson', date: '2024-02-14', risk: 'Medium', probability: 64 },
-      { id: 3, name: 'Mike Chen', date: '2024-02-14', risk: 'High', probability: 79 },
-      { id: 4, name: 'Emily Davis', date: '2024-02-13', risk: 'Low', probability: 23 },
-      { id: 5, name: 'David Wilson', date: '2024-02-13', risk: 'Medium', probability: 58 },
-    ];
-    setPredictions(mockData);
+    const loadHistory = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await getBankPredictionHistory(100);
+        setPredictions(res.data?.predictions || []);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not load prediction history');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHistory();
   }, []);
 
-  const filtered = filter === 'all' ? predictions : predictions.filter(p => p.risk.toLowerCase() === filter);
+  const filtered = filter === 'all'
+    ? predictions
+    : predictions.filter((p) => (p.risk || '').toLowerCase() === filter);
 
   const getRiskColor = (risk) => {
     switch(risk) {
@@ -58,34 +69,44 @@ const PredictionHistory = () => {
       </div>
 
       <div style={styles.tableWrapper}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Customer</th>
-              <th style={styles.th}>Date</th>
-              <th style={styles.th}>Risk Level</th>
-              <th style={styles.th}>Probability</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(p => (
-              <tr key={p.id} style={styles.tr}>
-                <td style={styles.td}>{p.name}</td>
-                <td style={styles.td}>{new Date(p.date).toLocaleDateString()}</td>
-                <td style={styles.td}>
-                  <span style={{
-                    ...styles.riskBadge,
-                    backgroundColor: getRiskColor(p.risk) + '20',
-                    color: getRiskColor(p.risk)
-                  }}>
-                    {p.risk}
-                  </span>
-                </td>
-                <td style={styles.td}>{p.probability}%</td>
+        {loading ? (
+          <p style={styles.stateText}>Loading latest prediction history...</p>
+        ) : error ? (
+          <p style={{ ...styles.stateText, color: colors.danger }}>{error}</p>
+        ) : filtered.length === 0 ? (
+          <p style={styles.stateText}>No prediction history found yet.</p>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Customer</th>
+                <th style={styles.th}>Date</th>
+                <th style={styles.th}>Prediction</th>
+                <th style={styles.th}>Risk Level</th>
+                <th style={styles.th}>Probability</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr key={p._id} style={styles.tr}>
+                  <td style={styles.td}>{p.customerName || '-'}</td>
+                  <td style={styles.td}>{new Date(p.createdAt).toLocaleString()}</td>
+                  <td style={styles.td}>{p.prediction}</td>
+                  <td style={styles.td}>
+                    <span style={{
+                      ...styles.riskBadge,
+                      backgroundColor: getRiskColor(p.risk) + '20',
+                      color: getRiskColor(p.risk)
+                    }}>
+                      {p.risk}
+                    </span>
+                  </td>
+                  <td style={styles.td}>{Number.isFinite(p.probability) ? `${(p.probability * 100).toFixed(1)}%` : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
@@ -136,6 +157,12 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse',
+  },
+  stateText: {
+    margin: 0,
+    padding: '10px 4px',
+    fontSize: '14px',
+    color: colors.muted,
   },
   th: {
     textAlign: 'left',
