@@ -1,0 +1,27 @@
+{
+  "name": "financial-customer-churn-prediction-system",
+  "version": "1.0.0",
+  "description": "A full-stack role-based web application that predicts whether a bank customer is likely to churn using machine learning techniques.",
+  "main": "index.js",
+ 
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barik-piyush/financial-customer-churn-prediction-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/barik-piyush/financial-customer-churn-prediction-system/issues"
+  },
+  "homepage": "https://github.com/barik-piyush/financial-customer-churn-prediction-system#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

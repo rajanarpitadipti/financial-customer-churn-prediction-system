@@ -1,5 +1,5 @@
 const isAdmin = (req, res, next) => {
-  // req.user is added by verifyToken middleware
+  // req.user is added by protect middleware
   if (!req.user) {
     return res.status(401).json({
       success: false,

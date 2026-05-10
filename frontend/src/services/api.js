@@ -20,6 +20,15 @@ export const getChurnDistribution = () => API.get('/predictions/churn-distributi
 // Admin: approve a user (admin only)
 export const approveUser = (userId) => API.patch(`/admin/approve/${userId}`);
 export const getAdminAnalytics = (range = '7d') => API.get(`/admin/analytics?range=${range}`);
+export const getAdminSettings = () => API.get('/settings/admin');
+export const updateAdminProfileSettings = (payload) => API.patch('/settings/admin/profile', payload);
+export const changeAdminPassword = (payload) => API.patch('/settings/admin/security/password', payload);
+export const updateAdminSecuritySettings = (payload) => API.patch('/settings/admin/security', payload);
+export const updateAdminSystemSettings = (payload) => API.patch('/settings/admin/system', payload);
+export const updateAdminNotificationSettings = (payload) => API.patch('/settings/admin/notifications', payload);
+export const logoutAllAdminSessions = () => API.post('/settings/admin/sessions/logout-all');
+export const backupDatabase = () => API.post('/settings/admin/database/backup');
+export const restoreDatabase = (payload) => API.post('/settings/admin/database/restore', payload);
 export const getAdminLogs = (params = {}) => {
   const searchParams = new URLSearchParams();
   if (params.level) searchParams.set('level', params.level);
@@ -39,7 +48,12 @@ export const adminUploadDataset = (file) => {
   });
 };
 
+export const uploadAdminDataset = adminUploadDataset;
+
 export const adminTrainModel = (filename) =>
+  API.post('/ml/admin/train-model', { filename });
+
+export const retrainAdminModel = (filename) =>
   API.post('/ml/admin/train-model', { filename });
 
 export const adminBatchPredict = (filename) =>

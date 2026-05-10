@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import verifyToken from '../middleware/auth.middleware.js';
+import { protect } from "../middleware/auth.middleware.js";
 import isAdmin from '../middleware/admin.middleware.js';
 import {
   adminUploadDataset,
@@ -22,15 +22,15 @@ const ROOT_DIR = path.resolve(__dirname, '../../..');
 const upload = multer({ dest: path.join(ROOT_DIR, 'backend', 'uploads') });
 
 // ADMIN ROUTES
-router.post('/admin/upload-dataset', verifyToken, isAdmin, upload.single('file'), adminUploadDataset);
-router.post('/admin/train-model', verifyToken, isAdmin, adminTrainModel);
-router.post('/admin/batch-predict', verifyToken, isAdmin, adminBatchPredict);
-router.post('/admin/prediction-summary', verifyToken, isAdmin, adminPredictionSummary);
-router.get('/admin/status', verifyToken, isAdmin, adminModelStatus);
+router.post('/admin/upload-dataset', protect, isAdmin, upload.single('file'), adminUploadDataset);
+router.post('/admin/train-model', protect, isAdmin, adminTrainModel);
+router.post('/admin/batch-predict', protect, isAdmin, adminBatchPredict);
+router.post('/admin/prediction-summary', protect, isAdmin, adminPredictionSummary);
+router.get('/admin/status', protect, isAdmin, adminModelStatus);
 
 // BANK ROUTES
-router.post('/prediction/single', verifyToken, bankSinglePredict);
-router.post('/prediction/upload-csv', verifyToken, upload.single('file'), bankBatchPredict);
-router.get('/prediction/history', verifyToken, bankPredictionHistory);
+router.post('/prediction/single', protect, bankSinglePredict);
+router.post('/prediction/upload-csv', protect, upload.single('file'), bankBatchPredict);
+router.get('/prediction/history', protect, bankPredictionHistory);
 
 export default router;

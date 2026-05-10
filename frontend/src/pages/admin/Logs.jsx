@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getAdminLogs } from '../../services/api';
 
 const colors = {
@@ -23,7 +23,7 @@ const Logs = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setError('');
       setLoading(true);
@@ -38,20 +38,20 @@ const Logs = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, search]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchLogs();
     }, 250);
     return () => clearTimeout(timer);
-  }, [filter, search]);
+  }, [fetchLogs]);
 
   useEffect(() => {
     if (!autoScroll) return;
     const interval = setInterval(fetchLogs, 10000);
     return () => clearInterval(interval);
-  }, [autoScroll, filter, search]);
+  }, [autoScroll, fetchLogs]);
 
   const exportCsv = () => {
     const header = ['Timestamp', 'Level', 'Source', 'Message', 'Details'];

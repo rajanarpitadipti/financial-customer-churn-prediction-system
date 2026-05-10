@@ -1,110 +1,160 @@
-
-import { predictChurn, getRiskLevel, initModel } from '../ml/churnModel.js';
-import csv from 'csv-parser';
-import multer from 'multer';
-import { trainWithRealData } from '../ml/churnModel.js';
-
-// Define multer upload instance
-const upload = multer({ dest: 'uploads/' });
-
-export const uploadAndTrain = [
-  upload.single('file'),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
-      }
-      const features = [];
-      const labels = [];
-      const fs = await import('fs');
-      fs.createReadStream(req.file.path)
-        .pipe(csv())
-        .on('data', (row) => {
-          // Adjust these keys to match your CSV columns
-          features.push([
-            Number(row.tenure),
-            Number(row.monthlyCharges),
-            Number(row.contract),
-            Number(row.supportCalls)
-          ]);
-          labels.push(Number(row.churn));
-        })
-        .on('end', async () => {
-          await trainWithRealData(features, labels);
-          fs.unlinkSync(req.file.path); // Clean up
-          res.json({ success: true, message: 'Model retrained with uploaded data' });
-        });
-    } catch (err) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  }
-];
-
-// For a single customer prediction
-export const predictSingleChurn = async (req, res) => {
+export const uploadAndTrain = async (req, res) => {
   try {
-    const { tenure, monthlyCharges, contract, supportCalls } = req.body;
-    
-    if (!tenure || !monthlyCharges || contract === undefined || supportCalls === undefined) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required fields: tenure, monthlyCharges, contract, supportCalls' 
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
       });
     }
 
-    const features = [tenure, monthlyCharges, contract, supportCalls];
+    const fs = await import("fs");
+    const csv = (await import("csv-parser")).default;
+    const { trainWithRealData } = await import("../ml/churnModel.js");
+
+    const features = [];
+    const labels = [];
+
+    fs.createReadStream(req.file.path)
+      .pipe(csv())
+      .on("data", (row) => {
+        const t = Number(row.tenure);
+        const mc = Number(row.monthlyCharges);
+        const c = Number(row.contract);
+        const sc = Number(row.supportCalls);
+        const label = Number(row.churn);
+
+        if (
+          isNaN(t) ||
+          isNaN(mc) ||
+          isNaN(c) ||
+          isNaN(sc) ||
+          isNaN(label)
+        ) {
+          return;
+        }
+
+        features.push([t, mc, c, sc]);
+        labels.push(label);
+      })
+      .on("end", async () => {
+        await trainWithRealData(features, labels);
+
+        fs.unlinkSync(req.file.path);
+
+        res.status(200).json({
+          success: true,
+          message: "Model retrained successfully",
+        });
+      });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+import { predictChurn, getRiskLevel } from "../ml/churnModel.js";
+
+export const predictSingleChurn = async (req, res) => {
+  try {
+    let { tenure, monthlyCharges, contract, supportCalls } = req.body;
+
+    // ✅ 1. Check missing fields
+    if (
+      tenure === undefined ||
+      monthlyCharges === undefined ||
+      contract === undefined ||
+      supportCalls === undefined
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "All fields are required: tenure, monthlyCharges, contract, supportCalls",
+      });
+    }
+
+    // ✅ 2. Convert to numbers
+    tenure = Number(tenure);
+    monthlyCharges = Number(monthlyCharges);
+    contract = Number(contract);
+    supportCalls = Number(supportCalls);
+
+    // ✅ 3. Type validation
+    if (
+      isNaN(tenure) ||
+      isNaN(monthlyCharges) ||
+      isNaN(contract) ||
+      isNaN(supportCalls)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All inputs must be valid numbers",
+      });
+    }
+
+    // ✅ 4. Range validation
+    if (tenure < 0 || tenure > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Tenure must be between 0 and 100",
+      });
+    }
+
+    if (monthlyCharges < 0 || monthlyCharges > 10000) {
+      return res.status(400).json({
+        success: false,
+        message: "Monthly charges must be between 0 and 10000",
+      });
+    }
+
+    if (![0, 1].includes(contract)) {
+      return res.status(400).json({
+        success: false,
+        message: "Contract must be 0 (monthly) or 1 (yearly)",
+      });
+    }
+
+    if (supportCalls < 0 || supportCalls > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Support calls must be between 0 and 50",
+      });
+    }
+
+    // ✅ 5. Prepare features
+    const features = [
+      Number(tenure),
+      Number(monthlyCharges),
+      Number(contract),
+      Number(supportCalls),
+    ];
+
+    // ✅ 6. Call ML model
     const probability = await predictChurn(features);
     const riskLevel = getRiskLevel(probability);
 
-    res.json({
+    // ✅ 7. Send response
+    return res.status(200).json({
       success: true,
-      churnProbability: Number(probability.toFixed(4)),
-      riskLevel,
-      features
+      data: {
+        churnProbability: Number(probability.toFixed(4)),
+        riskLevel,
+        input: {
+          tenure,
+          monthlyCharges,
+          contract,
+          supportCalls,
+        },
+      },
     });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+    console.error("Prediction Error:", error);
 
-// For batch predictions (return distribution) – ✅ this is what your dashboard uses!
-export const getChurnDistribution = async (req, res) => {
-  try {
-    // Generate 100 random realistic customers
-    const customers = [];
-    for (let i = 0; i < 100; i++) {
-      customers.push({
-        tenure: Math.floor(Math.random() * 72) + 1,
-        monthlyCharges: Math.floor(Math.random() * 100) + 30,
-        contract: Math.random() > 0.5 ? 1 : 0,
-        supportCalls: Math.floor(Math.random() * 10)
-      });
-    }
-
-    let low = 0, medium = 0, high = 0;
-    for (const cust of customers) {
-      const prob = await predictChurn([cust.tenure, cust.monthlyCharges, cust.contract, cust.supportCalls]);
-      const risk = getRiskLevel(prob);
-      if (risk === 'Low') low++;
-      else if (risk === 'Medium') medium++;
-      else high++;
-    }
-
-    const distribution = [
-      { name: 'Low Risk', value: low },
-      { name: 'Medium Risk', value: medium },
-      { name: 'High Risk', value: high }
-    ];
-
-    res.json({
-      success: true,
-      distribution,
-      summary: {
-        total: low + medium + high,
-        highRiskPercentage: ((high / (low + medium + high)) * 100).toFixed(1)
-      }
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
   }
 };

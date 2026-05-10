@@ -102,6 +102,7 @@ export const loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
         approved: user.approved,
+        tokenVersion: user.tokenVersion || 0,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }

@@ -1,5 +1,5 @@
 const verifyAdmin = (req, res, next) => {
-  // `req.user` comes from verifyToken middleware
+  // `req.user` comes from protect middleware
   if (!req.user) {
     return res.status(401).json({
       success: false,

@@ -16,7 +16,7 @@ import {
   YAxis,
 } from 'recharts';
 import { AuthContext } from "../../context/auth-context";
-import { bankBatchPredict, getChurnDistribution } from "../../services/api";
+import { bankBatchPredict } from "../../services/api";
 import ChurnChart from "../../components/ChurnChart";
 import ChurnPrediction from "./ChurnPrediction";
 import Profile from "./Profile";
@@ -36,6 +36,13 @@ const colors = {
 
 const PIE_COLORS = [colors.danger, colors.success, colors.warning];
 const SESSION_KEY = 'bank_prediction_chart_sessions';
+const ZERO_STATS = {
+  barData: [],
+  pieData: [],
+  bins: [],
+  matrix: { TP: 0, TN: 0, FP: 0, FN: 0 },
+  rocData: []
+};
 
 const getRiskLevel = (probability) => {
   const value = Number(probability) || 0;
@@ -137,22 +144,70 @@ const computeChartStats = (results = [], actualLabels = []) => {
   return { barData, pieData, bins, matrix, rocData, hasActualLabels };
 };
 
-const UploadDatasetSection = () => {
+const exportRows = (rows = [], format = 'csv', filename = 'analytics-report') => {
+  const headers = ['Name', 'Prediction', 'Probability', 'Risk Level', 'Region', 'Account Type'];
+  const dataRows = rows.map((row) => [
+    row.name || '',
+    row.prediction || '',
+    row.probability ?? '',
+    row.risk_level || getRiskLevel(row.probability),
+    row.region || 'Unknown',
+    row.accountType || 'Unknown',
+  ]);
+  const csv = [headers, ...dataRows]
+    .map((line) => line.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
+    .join('\n');
+  const extension = format === 'xlsx' ? 'csv' : format;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}.${extension}`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportPdf = (rows = []) => {
+  const htmlRows = rows.map((row) => `
+    <tr>
+      <td>${row.name || ''}</td>
+      <td>${row.prediction || ''}</td>
+      <td>${row.probability ?? ''}</td>
+      <td>${row.region || 'Unknown'}</td>
+      <td>${row.accountType || 'Unknown'}</td>
+    </tr>
+  `).join('');
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Analytics Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+          th { background: #f8fafc; }
+        </style>
+      </head>
+      <body>
+        <h1>High-Risk Customers</h1>
+        <table>
+          <thead><tr><th>Name</th><th>Prediction</th><th>Probability</th><th>Region</th><th>Account Type</th></tr></thead>
+          <tbody>${htmlRows}</tbody>
+        </table>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.print();
+};
+
+const UploadDatasetSection = ({ sessions, setSessions }) => {
   const [file, setFile] = useState(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState('');
   const [actualLabels, setActualLabels] = useState([]);
-  const [sessions, setSessions] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(SESSION_KEY) || '[]');
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
-  }, [sessions]);
 
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
@@ -282,16 +337,6 @@ const UploadDatasetSection = () => {
 export default function BankDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
-  // ===== STATES FOR DATASET PREDICTION =====
-
-const [file, setFile] = useState(null);
-const [bulkLoading, setBulkLoading] = useState(false);
-const [bulkError, setBulkError] = useState('');
-
-const [actualLabels, setActualLabels] = useState([]);
-const [metaRows, setMetaRows] = useState([]);
-
-const [pendingSession, setPendingSession] = useState(null);
 
 const [sessions, setSessions] = useState(() => {
   try {
@@ -301,25 +346,11 @@ const [sessions, setSessions] = useState(() => {
   }
 });
 
-// default empty stats to avoid crash
-const zeroStats = {
-  barData: [],
-  pieData: [],
-  bins: [],
-  matrix: { TP: 0, TN: 0, FP: 0, FN: 0 },
-  rocData: []
-};
-
 // save sessions automatically
 useEffect(() => {
   localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
 }, [sessions]);
   const [activeSection, setActiveSection] = useState("overview");
-  const [churnData, setChurnData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
-  }, [sessions]);
 
 
   useEffect(() => {
@@ -331,7 +362,7 @@ useEffect(() => {
     navigate("/login");
   };
 
-  const displaySession = pendingSession || sessions[0] || { stats: zeroStats, results: [] };
+  const displaySession = useMemo(() => sessions[0] || { stats: ZERO_STATS, results: [] }, [sessions]);
 
   const derivedMetrics = useMemo(() => {
     const total = displaySession.results?.length || 0;
@@ -379,65 +410,6 @@ useEffect(() => {
   }, [analyticsRows]);
 
   const highRiskRows = useMemo(() => analyticsRows.filter((r) => Number(r.probability) >= 0.7), [analyticsRows]);
-
-  const handleFileChange = async (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile && !getValidUploadType(selectedFile)) {
-      setFile(null);
-      setActualLabels([]);
-      setMetaRows([]);
-      setBulkError('Only CSV, XLSX, and XLS files are supported.');
-      return;
-    }
-
-    setFile(selectedFile);
-    setBulkError('');
-    const parsed = selectedFile ? await parseCsvForLabelsAndMeta(selectedFile) : { labels: [], metaRows: [] };
-    setActualLabels(parsed.labels);
-    setMetaRows(parsed.metaRows);
-  };
-
-  const handleRunPrediction = async (e) => {
-    e.preventDefault();
-    if (!file) {
-      setBulkError('Please select a dataset file.');
-      return;
-    }
-
-    setBulkLoading(true);
-    setBulkError('');
-
-    try {
-      const response = await bankBatchPredict(file);
-      const rawResults = response.data?.results || [];
-      const mergedResults = mapResultsWithMeta(rawResults, metaRows);
-      const stats = computeChartStats(mergedResults, actualLabels);
-
-      setPendingSession({
-        id: `${Date.now()}`,
-        fileName: file.name,
-        createdAt: new Date().toISOString(),
-        results: mergedResults,
-        stats,
-      });
-    } catch (err) {
-      setBulkError(err.response?.data?.message || err.message || 'Prediction failed');
-    } finally {
-      setBulkLoading(false);
-    }
-  };
-
-  const saveSessionResult = () => {
-    if (!pendingSession) return;
-    setSessions((prev) => [pendingSession, ...prev].slice(0, 20));
-    setPendingSession(null);
-  };
-
-  const clearSavedSessions = () => {
-    localStorage.removeItem(SESSION_KEY);
-    setSessions([]);
-    setPendingSession(null);
-  };
 
   const navItems = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -494,13 +466,13 @@ useEffect(() => {
                 ))}
               </div>
 
-              <UploadDatasetSection />
+              <UploadDatasetSection sessions={sessions} setSessions={setSessions} />
 
           
               <div style={styles.grid}>
-                <div style={styles.cardContainer}><h3 style={styles.cardTitle}>Bar Chart</h3><ResponsiveContainer width="100%" height={250}><BarChart data={displaySession.stats?.barData || zeroStats.barData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" fill={colors.accent} /></BarChart></ResponsiveContainer></div>
-                <div style={styles.cardContainer}><h3 style={styles.cardTitle}>Pie Chart</h3><ResponsiveContainer width="100%" height={250}><PieChart><Pie data={displaySession.stats?.pieData || zeroStats.pieData} dataKey="value" nameKey="name" label>{(displaySession.stats?.pieData || zeroStats.pieData).map((entry, index) => (<Cell key={entry.name || index} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div>
-                <div style={styles.cardContainer}><h3 style={styles.cardTitle}>Histogram</h3><ResponsiveContainer width="100%" height={250}><BarChart data={displaySession.stats?.bins || zeroStats.bins}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="range" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill={colors.secondary} /></BarChart></ResponsiveContainer></div>
+                <div style={styles.cardContainer}><h3 style={styles.cardTitle}>Bar Chart</h3><ResponsiveContainer width="100%" height={250}><BarChart data={displaySession.stats?.barData || ZERO_STATS.barData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" fill={colors.accent} /></BarChart></ResponsiveContainer></div>
+                <div style={styles.cardContainer}><h3 style={styles.cardTitle}>Pie Chart</h3><ResponsiveContainer width="100%" height={250}><PieChart><Pie data={displaySession.stats?.pieData || ZERO_STATS.pieData} dataKey="value" nameKey="name" label>{(displaySession.stats?.pieData || ZERO_STATS.pieData).map((entry, index) => (<Cell key={entry.name || index} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div>
+                <div style={styles.cardContainer}><h3 style={styles.cardTitle}>Histogram</h3><ResponsiveContainer width="100%" height={250}><BarChart data={displaySession.stats?.bins || ZERO_STATS.bins}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="range" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill={colors.secondary} /></BarChart></ResponsiveContainer></div>
 
                 <div style={styles.cardContainer}>
                   <h3 style={styles.cardTitle}>Confusion Matrix</h3>
@@ -515,7 +487,7 @@ useEffect(() => {
                 <div style={{ ...styles.cardContainer, gridColumn: '1 / -1' }}>
                   <h3 style={styles.cardTitle}>ROC / AUC Curve</h3>
                   <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={displaySession.stats?.rocData || zeroStats.rocData}>
+                    <LineChart data={displaySession.stats?.rocData || ZERO_STATS.rocData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="fpr" type="number" domain={[0, 1]} />
                       <YAxis dataKey="tpr" type="number" domain={[0, 1]} />

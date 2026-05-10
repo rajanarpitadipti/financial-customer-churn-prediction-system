@@ -17,8 +17,10 @@ financial-customer-churn-prediction-system/
 │   │   │   ├── admin.middleware.js
 │   │   │   ├── auth.middleware.js
 │   │   │   ├── error.middleware.js
+│   │   │   ├── predictionLimiter.js
 │   │   │   ├── rateLimiter.js
-│   │   │   └── role.middleware.js
+│   │   │   ├── role.middleware.js
+│   │   │   └── uploadMiddleware.js
 │   │   ├── ml/
 │   │   │   ├── churnModel.js
 │   │   │   ├── metrics.js
@@ -83,6 +85,7 @@ financial-customer-churn-prediction-system/
 │   │   │   ├── ChurnChart.jsx
 │   │   │   └── ProtectedRoute.jsx
 │   │   ├── context/
+│   │   │   ├── auth-context.js
 │   │   │   └── AuthContext.jsx
 │   │   ├── pages/
 │   │   │   ├── admin/
@@ -131,8 +134,10 @@ financial-customer-churn-prediction-system/
 │   ├── upload.css
 │   └── upload.html
 ├── ml/
+│   ├── model_meta.json
 │   ├── predict.py
 │   ├── rf_model.joblib
+│   ├── requirements.txt
 │   └── train_model.py
 ├── .gitignore
 ├── README.md

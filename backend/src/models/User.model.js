@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
         return this.role === 'bank';
       }
     },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

@@ -31,7 +31,7 @@ const Users = () => {
         user => user.role === 'admin' && !user.approved
       );
       setPendingUsers(pending);
-    } catch (error) {
+    } catch {
       setMessage({
         type: 'error',
         text: 'Failed to fetch pending users. Please try again.'

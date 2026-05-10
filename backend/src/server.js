@@ -24,8 +24,6 @@ initModel().then(() => {
   console.error('❌ Failed to initialize ML model:', err);
 });
 
-app.use(express.json());
-
 app.get("/", (req, res) => {
   res.send("Backend is running ...");
 });

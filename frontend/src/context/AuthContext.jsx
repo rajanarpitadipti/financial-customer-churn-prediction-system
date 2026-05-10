@@ -15,6 +15,8 @@ const getStoredPrefs = () => {
 const getUserPrefs = (email) => {
   if (!email) return {};
   const allPrefs = getStoredPrefs();
+
+  
   return allPrefs[email] || {};
 };
 

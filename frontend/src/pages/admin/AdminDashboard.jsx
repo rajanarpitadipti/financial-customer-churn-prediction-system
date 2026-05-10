@@ -5,6 +5,7 @@ import Users from "./Users";               // 👈 Import Users component
 import Analytics from "./Analytics";       // 👈 Import Analytics
 import Logs from "./Logs";                 // 👈 Import Logs
 import ModelControl from "./ModelControl"; // 👈 Import ModelControl
+import Settings from "./Settings";         // 👈 Import Settings
 
 const colors = {
   primary: '#001845',
@@ -140,12 +141,7 @@ const AdminDashboard = () => {
           {activeSection === 'analytics' && <Analytics />}
           {activeSection === 'logs' && <Logs />}
           {activeSection === 'model' && <ModelControl />}
-          {activeSection === 'settings' && (
-            <div style={styles.placeholder}>
-              <h2>Settings</h2>
-              <p>This section is under construction.</p>
-            </div>
-          )}
+          {activeSection === 'settings' && <Settings />}
         </main>
       </div>
     </div>
